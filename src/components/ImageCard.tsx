@@ -1,14 +1,8 @@
-import React, { useEffect, useState } from "react";
-import { Card, Avatar, Modal, Form, Input } from "antd";
-import {
-  MailOutlined,
-  PhoneOutlined,
-  GlobalOutlined,
-  HeartOutlined,
-  EditOutlined,
-  DeleteFilled,
-  HeartFilled,
-} from "@ant-design/icons";
+import { useEffect, useState } from "react";
+import { Form } from "antd";
+import axios from "axios";
+import UserCard from "./CardData/UserCard";
+import UserModal from "./CardData/UserModal";
 import "./ImageCard.css";
 
 interface User {
@@ -20,17 +14,7 @@ interface User {
   avatarUrl: string;
 }
 
-function LoadingMessage() {
-  return (
-    <div className="sk-circle">
-      {[...Array(12)].map((_, index) => (
-        <div key={index} className={`sk-circle${index + 1} sk-child`} />
-      ))}
-    </div>
-  );
-}
-
-function ImageCard() {
+const ImageCard = () => {
   const [userData, setUserData] = useState<User[]>([]);
   const [favoriteStatus, setFavoriteStatus] = useState<{
     [key: number]: boolean;
@@ -40,19 +24,23 @@ function ImageCard() {
   const [form] = Form.useForm();
 
   useEffect(() => {
-    fetch("https://jsonplaceholder.typicode.com/users")
-      .then((response) => response.json())
-      .then((data) => {
-        const usersWithAvatars = data.map((user: User) => ({
-          ...user,
-          avatarUrl: `https://api.dicebear.com/6.x/avataaars/svg?seed=${getRandomSeed()}`,
-        }));
-        setUserData(usersWithAvatars);
-      })
-      .catch((error) => {
-        console.log("Error:", error);
-      });
+    fetchUserData();
   }, []);
+
+  const fetchUserData = async () => {
+    try {
+      const { data } = await axios.get(
+        "https://jsonplaceholder.typicode.com/users"
+      );
+      const usersWithAvatars = data.map((user: User) => ({
+        ...user,
+        avatarUrl: `https://api.dicebear.com/6.x/avataaars/svg?seed=${getRandomSeed()}`,
+      }));
+      setUserData(usersWithAvatars);
+    } catch (error) {
+      console.log("Error:", error);
+    }
+  };
 
   const getRandomSeed = () => {
     const seeds = [
@@ -76,11 +64,10 @@ function ImageCard() {
   };
 
   const toggleFavorite = (userId: number) => {
-    setFavoriteStatus((prevState) => {
-      const newState = { ...prevState };
-      newState[userId] = !newState[userId];
-      return newState;
-    });
+    setFavoriteStatus((prevState) => ({
+      ...prevState,
+      [userId]: !prevState[userId],
+    }));
   };
 
   const deleteCard = (userId: number) => {
@@ -104,154 +91,63 @@ function ImageCard() {
     form.resetFields();
   };
 
-  const handleSave = () => {
-    form.validateFields().then((values) => {
-      const updatedUser = {
-        ...editingUser!,
-        name: values.name,
-        email: values.email,
-        phone: values.phone,
-        website: values.website,
-      };
-      setUserData((prevData) =>
-        prevData.map((user) =>
-          user.id === updatedUser.id ? updatedUser : user
-        )
-      );
-      setIsModalVisible(false);
-      setEditingUser(null);
-      form.resetFields();
-    });
+  const handleSave = (values: any) => {
+    const updatedUser = {
+      ...editingUser!,
+      name: values.name,
+      email: values.email,
+      phone: values.phone,
+      website: values.website,
+    };
+    setUserData((prevData) =>
+      prevData.map((user) => (user.id === updatedUser.id ? updatedUser : user))
+    );
+    setIsModalVisible(false);
+    setEditingUser(null);
+    form.resetFields();
   };
 
-  if (userData.length === 0) {
-    return <LoadingMessage />;
-  }
+  const renderLoadingMessage = () => {
+    return (
+      <div className="sk-circle">
+        {[...Array(12)].map((_, index) => (
+          <div key={index} className={`sk-circle${index + 1} sk-child`} />
+        ))}
+      </div>
+    );
+  };
+
+  const renderUserCards = () => {
+    return (
+      <div className="image-card">
+        {userData.map((user) => (
+          <UserCard
+            key={user.id}
+            user={user}
+            favoriteStatus={favoriteStatus}
+            toggleFavorite={toggleFavorite}
+            handleEdit={handleEdit}
+            deleteCard={deleteCard}
+          />
+        ))}
+      </div>
+    );
+  };
 
   return (
-    <div className="image-card">
-      {userData.map((user) => (
-        <Card
-          key={user.id}
-          hoverable
-          className="user-card"
-          cover={
-            <div className="avatar-container">
-              <Avatar className="user-avatar" size={180} src={user.avatarUrl} />
-            </div>
-          }
-        >
-          <div className="user-details">
-            <h3>{user.name}</h3>
-            <div className="info-group">
-              <p>
-                <MailOutlined />
-                <span>{user.email}</span>
-              </p>
-              <p>
-                <PhoneOutlined />
-                <span>{user.phone}</span>
-              </p>
-              <p>
-                <GlobalOutlined />
-                <span>{"http://" + user.website}</span>
-              </p>
-            </div>
-            <div className="user-actions">
-              {favoriteStatus[user.id] ? (
-                <HeartFilled
-                  className="action-button"
-                  style={{
-                    color: "red",
-                    transition: "color 0.3s",
-                  }}
-                  onClick={() => toggleFavorite(user.id)}
-                />
-              ) : (
-                <HeartOutlined
-                  className="action-button"
-                  style={{
-                    color: "red",
-                    transition: "color 0.3s",
-                  }}
-                  onClick={() => toggleFavorite(user.id)}
-                />
-              )}
-              <EditOutlined
-                className="action-button"
-                style={{
-                  color: "black",
-                }}
-                onMouseEnter={({ currentTarget }) => {
-                  currentTarget.style.color = "blue";
-                }}
-                onMouseLeave={({ currentTarget }) => {
-                  currentTarget.style.color = "black";
-                }}
-                onClick={() => handleEdit(user)}
-              />
-              <DeleteFilled
-                className="action-button"
-                style={{
-                  color: "black",
-                }}
-                onMouseEnter={({ currentTarget }) => {
-                  currentTarget.style.color = "blue";
-                }}
-                onMouseLeave={({ currentTarget }) => {
-                  currentTarget.style.color = "black";
-                }}
-                onClick={() => deleteCard(user.id)}
-              />
-            </div>
-          </div>
-        </Card>
-      ))}
+    <>
+      {userData.length === 0 ? renderLoadingMessage() : renderUserCards()}
       {editingUser && (
-        <Modal
-          title="Edit User"
+        <UserModal
           visible={isModalVisible}
-          onOk={handleSave}
+          user={editingUser}
+          form={form}
           onCancel={handleCancel}
-          okText="Save"
-          cancelText="Cancel"
-        >
-          <Form form={form} layout="vertical">
-            <Form.Item
-              name="name"
-              label="Name"
-              rules={[{ required: true, message: "Please enter a name" }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="email"
-              label="Email"
-              rules={[{ required: true, message: "Please enter an email" }]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="phone"
-              label="Phone Number"
-              rules={[
-                { required: true, message: "Please enter a phone number" },
-              ]}
-            >
-              <Input />
-            </Form.Item>
-            <Form.Item
-              name="website"
-              label="Website"
-              rules={[{ required: true, message: "Please enter a website" }]}
-            >
-              <Input />
-            </Form.Item>
-          </Form>
-        </Modal>
+          onSave={handleSave}
+        />
       )}
-    </div>
+    </>
   );
-}
+};
 
 export default ImageCard;
